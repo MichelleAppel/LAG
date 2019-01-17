@@ -6,6 +6,7 @@ import torch.nn as nn
 from torchvision.utils import save_image
 from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets, transforms
+
 from LAGDataset import LAGImageFolder
 
 from tensorboardX import SummaryWriter
@@ -16,91 +17,76 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
 
-        # self.downsample_layers = nn.Sequential(
-        #     nn.BatchNorm2d(3),
-        #     nn.MaxPool2d(kernel_size=2),
-        #     nn.Conv2d(3, 32, 3, stride=1, padding=1),
-        #     nn.BatchNorm2d(32, 0.8),
-        #     nn.LeakyReLU(0.2, inplace=True),
-        #     nn.MaxPool2d(kernel_size=2),
-        #     nn.Conv2d(32, 64, 3, stride=1, padding=1),
-        #     nn.BatchNorm2d(64, 0.8),
-        #     nn.LeakyReLU(0.2, inplace=True),
-        #     nn.Conv2d(64, 128, 3, stride=1, padding=1),
-        # )
-
-        # self.upsample_layers = nn.Sequential(
-        #     nn.BatchNorm2d(128),
-        #     nn.LeakyReLU(0.2, inplace=True),
-        #     nn.Upsample(scale_factor=2),
-        #     nn.Conv2d(128, 64, 3, stride=1, padding=1),
-        #     nn.BatchNorm2d(64, 0.8),
-        #     nn.LeakyReLU(0.2, inplace=True),
-        #     nn.Upsample(scale_factor=2),
-        #     nn.Conv2d(64, 32, 3, stride=1, padding=1),
-        #     nn.BatchNorm2d(32, 0.8),
-        #     nn.LeakyReLU(0.2, inplace=True),
-        #     nn.Conv2d(32, 3, 3, stride=1, padding=1),
-        #     nn.Tanh()
-        # )
-
         self.downsample_layers = nn.Sequential(
-            nn.Conv2d(3, 8, 3, stride=1, padding=1),
+            nn.BatchNorm2d(3), # (batch_size, 3, 100, 100)
+            nn.Conv2d(3, 8, 3, stride=1, padding=1), # (batch_size, 8, 100, 100)
+            nn.BatchNorm2d(8),
+            nn.LeakyReLU(0.2, inplace=True), 
+            nn.MaxPool2d(kernel_size=2), # (batch_size, 8, 50, 50)
+            nn.Conv2d(8, 16, 3, stride=1, padding=1), # (batch_size, 16, 50, 50)
+            nn.BatchNorm2d(16),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.MaxPool2d(kernel_size=2), # (batch_size, 16, 25, 25)
+            nn.Conv2d(16, 32, 3, stride=1, padding=1), # (batch_size, 32, 25, 25)
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.MaxPool2d(kernel_size=2), # (batch_size, 32, 12, 12)
+            nn.Conv2d(32, 64, 3, stride=1, padding=1), # (batch_size, 64, 12, 12)
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.2, inplace=True)
         )
 
         self.upsample_layers = nn.Sequential(
-            nn.Conv2d(3, 3, 1, stride=1, padding=0),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 32, 3, stride=1, padding=1), # (batch_size, 32, 12, 12)
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2), # (batch_size, 32, 24, 24)
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 16, 5, stride=1, padding=2), # (batch_size, 16, 24, 24)
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2), # (batch_size, 16, 48, 48)
+            nn.BatchNorm2d(16),
+            nn.Conv2d(16, 8, 5, stride=1, padding=3), # (batch_size, 8, 50, 50)
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2), # (batch_size, 8, 50, 50)
+            nn.BatchNorm2d(8),
+            nn.Conv2d(8, 3, 5, stride=1, padding=2), # (batch_size, 3, 100, 100)
             nn.Tanh()
         )
 
     def forward(self, input_image):
-        # latent = self.downsample_layers(input_image)
-        out = self.upsample_layers(input_image)
+        latent = self.downsample_layers(input_image)
+        out = self.upsample_layers(latent)
+
         return out
 
 class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
-        
+
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(
-                in_channels=3,              # input height
-                out_channels=8,             # n_filters
-                kernel_size=5,              # filter size
-                stride=1,                   # filter movement/step
-                padding=2,                  # if want same width and length of this image after con2d, padding=(kernel_size-1)/2 if stride=1
-                    ),                      # output shape (16, 28, 28)
-            nn.LeakyReLU(0.2),              # activation
-            nn.MaxPool2d(kernel_size=2),    # choose max value in 2x2 area, output shape (8, 14, 14)
-            
-            nn.Conv2d(
-                in_channels=8,             # input height
-                out_channels=64,            # n_filters
-                kernel_size=5,              # filter size
-                stride=1,                   # filter movement/step
-                padding=2,                  # if want same width and length of this image after con2d, padding=(kernel_size-1)/2 if stride=1
-                    ),                      # output shape (32, 14, 14)
-            nn.LeakyReLU(0.2),              # activation
-            nn.MaxPool2d(kernel_size=2),    # choose max value in 2x2 area, output shape (16, 7, 7)
+            nn.Conv2d(6, 1, 1, stride=1, padding=0),
+            nn.LeakyReLU(0.2, inplace=True),
         )
 
-        self.fc_layers = nn.Sequential(
-            nn.Linear(60000,1),
+        self.linear_layers = nn.Sequential(
+            nn.Linear(100*100, 1),
             nn.Sigmoid()
         )
 
-    def forward(self, x, y):
-        # out = self.fc_layers(conv_output.view(input_image.shape[0],-1))
-        combined = torch.cat([x, y], dim=2).view(x.shape[0], -1)
-        out = self.fc_layers(combined)
-        return out
+    def forward(self, target, img):
+        d_in = torch.cat((target, img),1)
+        hidden = self.conv_layers(d_in)
+        validity = self.linear_layers(hidden.view(hidden.shape[0], -1))
         
+        return validity
+
 def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
     if args.summary:
         # Tensorboard writer
         writer = SummaryWriter(os.path.join('output', 'gan', 'summary', args.model_name))
 
-    adversarial_loss = torch.nn.BCELoss().cuda()
+    adversarial_loss = torch.nn.MSELoss().cuda()
 
     discriminator = discriminator.cuda()
     generator = generator.cuda()
@@ -124,9 +110,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             a_loss = adversarial_loss(discriminator(g, imgs), valid).cuda()
             l1_loss = torch.nn.functional.l1_loss(g, targets).cuda()
 
-            # print(discriminator(g, imgs))
-
-            g_loss = a_loss #+ l1_loss
+            g_loss = l1_loss
             
             # The optimization process
             g_loss.backward() # Perform backward pass
@@ -138,6 +122,7 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
 
             real_loss = adversarial_loss(discriminator(targets, imgs), valid)
             fake_loss = adversarial_loss(discriminator(g.detach(), imgs), fake)
+
             d_loss = (real_loss + fake_loss)/2
 
             d_loss.backward() # Perform backward pass
@@ -146,9 +131,9 @@ def train(dataloader, discriminator, generator, optimizer_G, optimizer_D):
             # Print progress test
             if i % 10 == 0:
                 print("Epoch {}, Train Step {:03d}, Batch Size = {}, "
-                    "G_loss = {:.3f}, D_loss = {:.3f}".format(
+                    "G_loss = {:.3f}, D_loss = {:.3f} (real loss = {:.3f}, fake loss = {:.3f})".format(
                         epoch, i,
-                        args.batch_size, g_loss, d_loss
+                        args.batch_size, g_loss, d_loss, real_loss, fake_loss
                         )) 
 
             batches_done = epoch * len(dataloader) + i
@@ -191,8 +176,8 @@ def main():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_epochs', type=int, default=50, help='number of epochs')
-    parser.add_argument('--lr_G', type=float, default=0.01, help='learning rate')
-    parser.add_argument('--lr_D', type=float, default=0.05, help='learning rate')
+    parser.add_argument('--lr_G', type=float, default=0.02, help='learning rate')
+    parser.add_argument('--lr_D', type=float, default=0.0002, help='learning rate')
     parser.add_argument('--batch_size', type=int, default=16, help='amount of examples in the minibatch')
 
     parser.add_argument('--model_name', type=str, default='gantest', help='dir to save stuff')       
