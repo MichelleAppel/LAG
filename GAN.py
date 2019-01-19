@@ -17,46 +17,106 @@ class Generator(nn.Module):
     def __init__(self):
         super(Generator, self).__init__()
 
-        self.downsample_layers = nn.Sequential(
+        # self.downsample_layers = nn.Sequential(
+        #     nn.BatchNorm2d(3), # (batch_size, 3, 100, 100)
+        #     nn.Conv2d(3, 8, 5, stride=1, padding=2), # (batch_size, 8, 100, 100)
+        #     nn.BatchNorm2d(8),
+        #     nn.LeakyReLU(0.2, inplace=True), 
+        #     nn.MaxPool2d(kernel_size=2), # (batch_size, 8, 50, 50)
+        #     nn.Conv2d(8, 16, 5, stride=1, padding=2), # (batch_size, 16, 50, 50)
+        #     nn.BatchNorm2d(16),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.MaxPool2d(kernel_size=2), # (batch_size, 16, 25, 25)
+        #     nn.Conv2d(16, 32, 5, stride=1, padding=2), # (batch_size, 32, 25, 25)
+        #     nn.BatchNorm2d(32),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.MaxPool2d(kernel_size=2), # (batch_size, 32, 12, 12)
+        #     nn.Conv2d(32, 64, 3, stride=1, padding=1), # (batch_size, 64, 12, 12)
+        #     nn.BatchNorm2d(64),
+        #     nn.LeakyReLU(0.2, inplace=True)
+        # )
+
+        # self.upsample_layers = nn.Sequential(
+        #     nn.Conv2d(64, 32, 3, stride=1, padding=1), # (batch_size, 32, 12, 12)
+        #     nn.BatchNorm2d(32),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Upsample(scale_factor=2), # (batch_size, 32, 24, 24)
+        #     nn.Conv2d(32, 16, 3, stride=1, padding=1), # (batch_size, 16, 24, 24)
+        #     nn.BatchNorm2d(16),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Upsample(scale_factor=2), # (batch_size, 16, 48, 48)
+        #     nn.Conv2d(16, 8, 5, stride=1, padding=3), # (batch_size, 8, 50, 50)
+        #     nn.BatchNorm2d(8),
+        #     nn.LeakyReLU(0.2, inplace=True),
+        #     nn.Upsample(scale_factor=2), # (batch_size, 8, 50, 50)
+        #     nn.Conv2d(8, 3, 3, stride=1, padding=1), # (batch_size, 3, 100, 100)
+        #     nn.BatchNorm2d(3),
+        #     nn.Tanh()
+        # )
+
+        self.down1 = nn.Sequential(
             nn.BatchNorm2d(3), # (batch_size, 3, 100, 100)
-            nn.Conv2d(3, 8, 3, stride=1, padding=1), # (batch_size, 8, 100, 100)
+            nn.Conv2d(3, 8, 5, stride=1, padding=2), # (batch_size, 8, 100, 100)
             nn.BatchNorm2d(8),
-            nn.LeakyReLU(0.2, inplace=True), 
-            nn.MaxPool2d(kernel_size=2), # (batch_size, 8, 50, 50)
-            nn.Conv2d(8, 16, 3, stride=1, padding=1), # (batch_size, 16, 50, 50)
-            nn.BatchNorm2d(16),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(kernel_size=2), # (batch_size, 16, 25, 25)
-            nn.Conv2d(16, 32, 3, stride=1, padding=1), # (batch_size, 32, 25, 25)
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(kernel_size=2), # (batch_size, 32, 12, 12)
-            nn.Conv2d(32, 64, 3, stride=1, padding=1), # (batch_size, 64, 12, 12)
-            nn.BatchNorm2d(64),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
-        self.upsample_layers = nn.Sequential(
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 32, 3, stride=1, padding=1), # (batch_size, 32, 12, 12)
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2), # (batch_size, 32, 24, 24)
-            nn.BatchNorm2d(32),
-            nn.Conv2d(32, 16, 5, stride=1, padding=2), # (batch_size, 16, 24, 24)
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2), # (batch_size, 16, 48, 48)
+        self.down2 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2), # (batch_size, 8, 50, 50)
+            nn.Conv2d(8, 16, 5, stride=1, padding=2), # (batch_size, 16, 50, 50)
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 8, 5, stride=1, padding=3), # (batch_size, 8, 50, 50)
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.down3 = nn.Sequential(
+            nn.MaxPool2d(kernel_size=2), # (batch_size, 16, 25, 25)
+            nn.Conv2d(16, 32, 3, stride=1, padding=1), # (batch_size, 32, 25, 25)
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.middle = nn.Sequential(
+            nn.Conv2d(32, 32, 3, stride=1, padding=1), # (batch_size, 32, 25, 25)
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.up1 = nn.Sequential(
+            nn.Conv2d(32, 16, 3, stride=1, padding=1), # (batch_size, 16, 25, 25)
+            nn.BatchNorm2d(16),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2), # (batch_size, 8, 50, 50)
+            nn.Upsample(scale_factor=2, mode='bilinear') # (batch_size, 16, 50, 50)
+        )
+
+        self.up2 = nn.Sequential(
+            nn.Conv2d(16, 8, 3, stride=1, padding=1), # (batch_size, 8, 50, 50)
             nn.BatchNorm2d(8),
-            nn.Conv2d(8, 3, 5, stride=1, padding=2), # (batch_size, 3, 100, 100)
+            nn.Upsample(scale_factor=2, mode='bilinear') # (batch_size, 8, 100, 100)
+        )
+
+        self.up3 = nn.Sequential(
+            nn.Conv2d(8, 3, 3, stride=1, padding=1), # (batch_size, 3, 100, 100)
+            nn.BatchNorm2d(3),
+            nn.LeakyReLU(0.2, inplace=True),
+        )
+
+        self.sharpen = nn.Sequential(
+            nn.Conv2d(3, 3, 3, stride=1, padding=1), # (batch_size, 3, 100, 100)
+            nn.BatchNorm2d(3),
             nn.Tanh()
         )
 
     def forward(self, input_image):
-        latent = self.downsample_layers(input_image)
-        out = self.upsample_layers(latent)
+        # latent = self.downsample_layers(input_image)
+        # out = self.upsample_layers(latent)
+
+        h1 = self.down1(input_image)
+        h2 = self.down2(h1)
+        h3 = self.down3(h2)
+        h4 = self.middle(h3)
+        h5 = self.up1(h4)
+        h6 = self.up2(h5)
+        out = self.up3(h6)
 
         return out
 
